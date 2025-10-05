@@ -1,6 +1,6 @@
 # Agent Hacking: Claude Code + Bifrost Observability Demo
 
-This repo shows how to layer **Bifrost** in front of the Claude Code CLI so you can send requests through any provider that speaks the Anthropics API surface while emitting OpenTelemetry traces. The included Docker assets start a Claude Code container with Bifrost plus a lightweight observability stack (OpenTelemetry Collector, ClickHouse, Grafana Tempo, and Grafana) so you can see traces end-to-end without additional wiring.
+This repo shows how to layer **Bifrost** in front of Claude Code so you can send requests through any provider while emitting OpenTelemetry traces. The included Docker assets start a Claude Code container with Bifrost plus a lightweight, unopinionated observability stack (OpenTelemetry Collector, ClickHouse, Grafana Tempo, and Grafana) so you can see traces end-to-end without additional wiring.
 
 ## What you get
 
@@ -16,7 +16,7 @@ This repo shows how to layer **Bifrost** in front of the Claude Code CLI so you 
 ## Prerequisites
 
 - Docker + Docker Compose v2
-- API key that implements the Anthropics API shape (OpenRouter works out of the box)
+- API key for a compatible service (OpenRouter works out of the box)
 
 ## Quick start
 
@@ -145,7 +145,7 @@ docker-compose.yaml     One-command demo environment
 
 ## Customising providers
 
-Bifrost reads `bifrost.config.json` at startup. Swap `openrouter` for any other provider that implements the Anthropics API, adjust model lists, or add multiple providers with weighting. Secrets can be supplied through environment variables or Docker secrets; the entrypoint automatically falls back to `OPENROUTER_API_KEY` for both `ANTHROPIC_API_KEY` and `CLAUDE_API_KEY` if they are unset.
+Bifrost reads `bifrost.config.json` at startup. You can swap `openrouter` for other providers and adjust model lists. Secrets can be supplied through environment variables or Docker secrets; the entrypoint automatically falls back to `OPENROUTER_API_KEY` for both `ANTHROPIC_API_KEY` and `CLAUDE_API_KEY` if they are unset.
 
 To override Bifrost flags at runtime, set `BIFROST_EXTRA_ARGS` in `docker-compose.yaml` (for example `--profile debug`).
 
