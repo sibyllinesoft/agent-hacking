@@ -1,0 +1,8 @@
+version: 1
+name: agent-hacking-webhook
+steps:
+  - name: Inspect Payload
+    run: |
+      echo "Workspace: $(pwd)"
+      ls -a
+      cat "$CLAUDE_CODE_WEBHOOK_PATH"

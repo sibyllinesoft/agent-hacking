@@ -1,0 +1,103 @@
+services:
+  claude-code:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-code-bifrost
+    privileged: true
+    env_file:
+      - .env
+    ports:
+      - "8787:8787"   # Claude Code webhook server
+      - "6080:8080"   # Bifrost gateway (host 6080 -> container 8080)
+    environment:
+      PORT: 8787
+      BIFROST_HOST: 0.0.0.0
+      BIFROST_PORT: 8080
+      BIFROST_LOG_LEVEL: debug
+      OTEL_RESOURCE_NAMESPACE: agent-hacking
+      OTEL_RESOURCE_ATTRIBUTES: environment=demo
+      CLAUDE_CODE_OTEL_SERVICE_NAME: claude-code-runner
+      CLAUDE_CODE_MODEL: openrouter/x-ai/grok-4-fast
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      - workspaces:/srv/claude-code/workspaces
+      - bifrost_data:/srv/claude-code/bifrost
+    depends_on:
+      - otel-collector
+      - clickhouse
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.90.1
+    container_name: otel-collector
+    command:
+      - "--config=/etc/otelcol-contrib/otel-collector.yaml"
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otelcol-contrib/otel-collector.yaml:ro
+    environment:
+      CLICKHOUSE_ENDPOINT: http://clickhouse:8123
+      CLICKHOUSE_DATABASE: otel
+      CLICKHOUSE_USERNAME: default
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      tempo:
+        condition: service_started
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.10
+    container_name: clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./observability/clickhouse-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      CLICKHOUSE_DB: otel
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: tempo
+    command:
+      - "-config.file=/etc/tempo.yaml"
+    ports:
+      - "3200:3200"
+    volumes:
+      - tempo_data:/var/tempo
+      - ./observability/tempo.yaml:/etc/tempo.yaml:ro
+    user: "0"
+
+  grafana:
+    image: grafana/grafana:10.4.3
+    container_name: grafana
+    ports:
+      - "6300:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - tempo
+
+volumes:
+  clickhouse_data:
+  tempo_data:
+  grafana_data:
+  workspaces:
+  bifrost_data:
